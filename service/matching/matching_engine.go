@@ -260,7 +260,8 @@ func (e *matchingEngineImpl) watchMembership() {
 		e.taskQueuesLock.RLock()
 		ids := make([]*taskQueueID, 0, len(e.taskQueues))
 		for id := range e.taskQueues {
-			ids = append(ids, util.Ptr(id))
+			id := id
+			ids = append(ids, &id)
 		}
 		e.taskQueuesLock.RUnlock()
 
