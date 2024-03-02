@@ -490,6 +490,15 @@ message ActivitySyncInfo {
 message SyncActivityResponse {
 }
 
+message SyncHSMInfo {
+
+}
+
+message SyncHSMRequest {
+    // TODO: Add fields for HSM sync
+    repeated SyncHSMInfo hsm_infos = 1;
+}
+
 message DescribeMutableStateRequest {
     string namespace_id = 1;
     temporal.api.common.v1.WorkflowExecution execution = 2;

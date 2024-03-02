@@ -74,6 +74,7 @@ var (
 		"TransferDeleteExecution":      24,
 		"ReplicationSyncWorkflowState": 25,
 		"ArchivalArchiveExecution":     26,
+		"ReplicationSyncHsmState":      27,
 	}
 )
 

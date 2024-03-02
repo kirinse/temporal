@@ -313,6 +313,17 @@ func (s *taskSerializerSuite) TestReplicateActivityTask() {
 	s.assertEqualTasks(replicateActivityTask)
 }
 
+func (s *taskSerializerSuite) TestReplicationSyncHSMStateTask() {
+	replicateHSMStateTask := &tasks.SyncHSMStateTask{
+		WorkflowKey:         s.workflowKey,
+		VisibilityTimestamp: time.Unix(0, 0).UTC(), // go == compare for location as well which is striped during marshaling/unmarshaling
+		TaskID:              rand.Int63(),
+		Version:             rand.Int63(),
+	}
+
+	s.assertEqualTasks(replicateHSMStateTask)
+}
+
 func (s *taskSerializerSuite) TestReplicateHistoryTask() {
 	replicateHistoryTask := &tasks.HistoryReplicationTask{
 		WorkflowKey:         s.workflowKey,

@@ -40,6 +40,7 @@ var (
 		"HistoryV2Task":         6,
 		"SyncWorkflowStateTask": 7,
 		"TaskQueueUserData":     8,
+		"SyncHsmStateTask":      9,
 	}
 )
 

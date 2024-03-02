@@ -513,6 +513,8 @@ const (
 	SyncShardTaskScope = "SyncShardTask"
 	// SyncActivityTaskScope is the scope used by sync activity
 	SyncActivityTaskScope = "SyncActivityTask"
+	// SyncHSMTaskScope is the scope used to sync HSM state
+	SyncHSMTaskScope = "SyncHSMTask"
 	// SyncWorkflowStateTaskScope is the scope used by closed workflow task replication processing
 	SyncWorkflowStateTaskScope = "SyncWorkflowStateTask"
 	// SyncWatermarkScope is the scope used by closed workflow task replication processing

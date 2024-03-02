@@ -259,6 +259,8 @@ func (s *TaskSerializer) serializeReplicationTask(
 		replicationTask = s.replicationHistoryTaskToProto(task)
 	case *tasks.SyncWorkflowStateTask:
 		replicationTask = s.replicationSyncWorkflowStateTaskToProto(task)
+	case *tasks.SyncHSMStateTask:
+		replicationTask = s.replicationSyncHSMStateTaskToProto(task)
 	default:
 		return nil, serviceerror.NewInternal(fmt.Sprintf("Unknown repication task type: %v", task))
 	}
@@ -284,6 +286,8 @@ func (s *TaskSerializer) ParseReplicationTask(replicationTask *persistencespb.Re
 		return s.replicationHistoryTaskFromProto(replicationTask), nil
 	case enumsspb.TASK_TYPE_REPLICATION_SYNC_WORKFLOW_STATE:
 		return s.replicationSyncWorkflowStateTaskFromProto(replicationTask), nil
+	case enumsspb.TASK_TYPE_REPLICATION_SYNC_HSM_STATE:
+		return s.replicationSyncHSMStateTaskFromProto(replicationTask), nil
 	default:
 		return nil, serviceerror.NewInternal(fmt.Sprintf("Unknown replication task type: %v", replicationTask.TaskType))
 	}
@@ -1137,5 +1141,30 @@ func (s *TaskSerializer) replicationSyncWorkflowStateTaskFromProto(
 		VisibilityTimestamp: visibilityTimestamp,
 		Version:             syncWorkflowStateTask.Version,
 		TaskID:              syncWorkflowStateTask.TaskId,
+	}
+}
+
+func (s *TaskSerializer) replicationSyncHSMStateTaskToProto(task *tasks.SyncHSMStateTask) *persistencespb.ReplicationTaskInfo {
+	return &persistencespb.ReplicationTaskInfo{
+		NamespaceId:    task.WorkflowKey.NamespaceID,
+		WorkflowId:     task.WorkflowKey.WorkflowID,
+		RunId:          task.WorkflowKey.RunID,
+		TaskType:       enumsspb.TASK_TYPE_REPLICATION_SYNC_HSM_STATE,
+		TaskId:         task.TaskID,
+		Version:        task.Version,
+		VisibilityTime: timestamppb.New(task.VisibilityTimestamp),
+	}
+}
+
+func (s *TaskSerializer) replicationSyncHSMStateTaskFromProto(task *persistencespb.ReplicationTaskInfo) tasks.Task {
+	visibilityTimestamp := time.Unix(0, 0)
+	if task.VisibilityTime != nil {
+		visibilityTimestamp = task.VisibilityTime.AsTime()
+	}
+	return &tasks.SyncHSMStateTask{
+		WorkflowKey:         definition.NewWorkflowKey(task.NamespaceId, task.WorkflowId, task.RunId),
+		VisibilityTimestamp: visibilityTimestamp,
+		Version:             task.Version,
+		TaskID:              task.TaskId,
 	}
 }

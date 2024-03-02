@@ -196,6 +196,32 @@ func convertActivityStateReplicationTask(
 	)
 }
 
+func convertHSMStateReplicationTask(
+	ctx context.Context,
+	shardContext shard.Context,
+	task *tasks.SyncHSMStateTask,
+	cache wcache.Cache,
+) (*replicationspb.ReplicationTask, error) {
+	return generateStateReplicationTask(
+		ctx,
+		shardContext,
+		definition.NewWorkflowKey(task.NamespaceID, task.WorkflowID, task.RunID),
+		cache,
+		func(mutableState workflow.MutableState) (*replicationspb.ReplicationTask, error) {
+			return &replicationspb.ReplicationTask{
+				TaskType:     enumsspb.REPLICATION_TASK_TYPE_SYNC_HSM_STATE_TASK,
+				SourceTaskId: task.TaskID,
+				Attributes: &replicationspb.ReplicationTask_SyncShardStatusTaskAttributes{
+					SyncShardStatusTaskAttributes: &replicationspb.SyncShardStatusTaskAttributes{
+						StatusTime: timestamppb.New(task.VisibilityTimestamp),
+					},
+				},
+				VisibilityTime: timestamppb.New(task.VisibilityTimestamp),
+			}, nil
+		},
+	)
+}
+
 func convertWorkflowStateReplicationTask(
 	ctx context.Context,
 	shardContext shard.Context,
