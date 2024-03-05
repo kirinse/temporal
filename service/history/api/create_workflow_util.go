@@ -273,8 +273,8 @@ func ValidateStartWorkflowExecutionRequest(
 	if request.WorkflowType == nil || request.WorkflowType.GetName() == "" {
 		return serviceerror.NewInvalidArgument("Missing WorkflowType.")
 	}
-	if len(request.GetNamespace()) > maxIDLengthLimit {
-		return serviceerror.NewInvalidArgument("Namespace exceeds length limit.")
+	if _, err := namespace.ParseName(request.Namespace, maxIDLengthLimit); err != nil {
+		return err
 	}
 	if len(request.GetWorkflowId()) > maxIDLengthLimit {
 		return serviceerror.NewInvalidArgument("WorkflowId exceeds length limit.")
