@@ -109,6 +109,14 @@ func (e *executableTaskConverterImpl) convertOne(
 			replicationTask.GetSyncActivityTaskAttributes(),
 			taskClusterName,
 		)
+	case enumsspb.REPLICATION_TASK_TYPE_SYNC_HSM_STATE_TASK:
+		return NewExecutableHSMStateTask(
+			e.processToolBox,
+			replicationTask.SourceTaskId,
+			taskCreationTime,
+			replicationTask.GetSyncHsmTaskAttributes(),
+			taskClusterName,
+		)
 	case enumsspb.REPLICATION_TASK_TYPE_SYNC_WORKFLOW_STATE_TASK:
 		return NewExecutableWorkflowStateTask(
 			e.processToolBox,

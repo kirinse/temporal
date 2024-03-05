@@ -140,6 +140,80 @@ func (this *VersionHistory) Equal(that interface{}) bool {
 	return proto.Equal(this, that1)
 }
 
+// Marshal an object of type StateTransitionVersionRange to the protobuf v3 wire format
+func (val *StateTransitionVersionRange) Marshal() ([]byte, error) {
+	return proto.Marshal(val)
+}
+
+// Unmarshal an object of type StateTransitionVersionRange from the protobuf v3 wire format
+func (val *StateTransitionVersionRange) Unmarshal(buf []byte) error {
+	return proto.Unmarshal(buf, val)
+}
+
+// Size returns the size of the object, in bytes, once serialized
+func (val *StateTransitionVersionRange) Size() int {
+	return proto.Size(val)
+}
+
+// Equal returns whether two StateTransitionVersionRange values are equivalent by recursively
+// comparing the message's fields.
+// For more information see the documentation for
+// https://pkg.go.dev/google.golang.org/protobuf/proto#Equal
+func (this *StateTransitionVersionRange) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	var that1 *StateTransitionVersionRange
+	switch t := that.(type) {
+	case *StateTransitionVersionRange:
+		that1 = t
+	case StateTransitionVersionRange:
+		that1 = &t
+	default:
+		return false
+	}
+
+	return proto.Equal(this, that1)
+}
+
+// Marshal an object of type StateTransitionVersionHistory to the protobuf v3 wire format
+func (val *StateTransitionVersionHistory) Marshal() ([]byte, error) {
+	return proto.Marshal(val)
+}
+
+// Unmarshal an object of type StateTransitionVersionHistory from the protobuf v3 wire format
+func (val *StateTransitionVersionHistory) Unmarshal(buf []byte) error {
+	return proto.Unmarshal(buf, val)
+}
+
+// Size returns the size of the object, in bytes, once serialized
+func (val *StateTransitionVersionHistory) Size() int {
+	return proto.Size(val)
+}
+
+// Equal returns whether two StateTransitionVersionHistory values are equivalent by recursively
+// comparing the message's fields.
+// For more information see the documentation for
+// https://pkg.go.dev/google.golang.org/protobuf/proto#Equal
+func (this *StateTransitionVersionHistory) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	var that1 *StateTransitionVersionHistory
+	switch t := that.(type) {
+	case *StateTransitionVersionHistory:
+		that1 = t
+	case StateTransitionVersionHistory:
+		that1 = &t
+	default:
+		return false
+	}
+
+	return proto.Equal(this, that1)
+}
+
 // Marshal an object of type VersionHistories to the protobuf v3 wire format
 func (val *VersionHistories) Marshal() ([]byte, error) {
 	return proto.Marshal(val)

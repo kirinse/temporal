@@ -314,6 +314,18 @@ func (r *dlqHandlerImpl) readMessagesWithAckLevel(
 				NextEventId:      0,
 				ScheduledEventId: task.ScheduledEventID,
 			})
+		case *tasks.SyncHSMTask:
+			taskInfo = append(taskInfo, &replicationspb.ReplicationTaskInfo{
+				NamespaceId:      task.NamespaceID,
+				WorkflowId:       task.WorkflowID,
+				RunId:            task.RunID,
+				TaskType:         enumsspb.TASK_TYPE_REPLICATION_SYNC_HSM,
+				TaskId:           task.TaskID,
+				Version:          task.GetVersion(),
+				FirstEventId:     0,
+				NextEventId:      0,
+				ScheduledEventId: 0,
+			})
 		case *tasks.HistoryReplicationTask:
 			taskInfo = append(taskInfo, &replicationspb.ReplicationTaskInfo{
 				NamespaceId:      task.NamespaceID,

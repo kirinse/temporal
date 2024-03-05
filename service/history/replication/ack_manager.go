@@ -209,6 +209,17 @@ func (p *ackMgrImpl) GetTask(
 			Version:             taskInfo.Version,
 			ScheduledEventID:    taskInfo.ScheduledEventId,
 		})
+	case enumsspb.TASK_TYPE_REPLICATION_SYNC_HSM:
+		return p.ConvertTask(ctx, &tasks.SyncHSMTask{
+			WorkflowKey: definition.NewWorkflowKey(
+				taskInfo.GetNamespaceId(),
+				taskInfo.GetWorkflowId(),
+				taskInfo.GetRunId(),
+			),
+			VisibilityTimestamp: time.Unix(0, 0), // TODO add the missing attribute to proto definition
+			TaskID:              taskInfo.TaskId,
+			Version:             taskInfo.Version,
+		})
 	case enumsspb.TASK_TYPE_REPLICATION_HISTORY:
 		return p.ConvertTask(ctx, &tasks.HistoryReplicationTask{
 			WorkflowKey: definition.NewWorkflowKey(
@@ -409,6 +420,13 @@ func (p *ackMgrImpl) ConvertTask(
 	switch task := task.(type) {
 	case *tasks.SyncActivityTask:
 		return convertActivityStateReplicationTask(
+			ctx,
+			p.shardContext,
+			task,
+			p.workflowCache,
+		)
+	case *tasks.SyncHSMTask:
+		return convertHSMStateReplicationTask(
 			ctx,
 			p.shardContext,
 			task,

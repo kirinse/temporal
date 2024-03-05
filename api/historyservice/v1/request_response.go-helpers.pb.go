@@ -2323,6 +2323,80 @@ func (this *SyncActivityResponse) Equal(that interface{}) bool {
 	return proto.Equal(this, that1)
 }
 
+// Marshal an object of type SyncHSMInfo to the protobuf v3 wire format
+func (val *SyncHSMInfo) Marshal() ([]byte, error) {
+	return proto.Marshal(val)
+}
+
+// Unmarshal an object of type SyncHSMInfo from the protobuf v3 wire format
+func (val *SyncHSMInfo) Unmarshal(buf []byte) error {
+	return proto.Unmarshal(buf, val)
+}
+
+// Size returns the size of the object, in bytes, once serialized
+func (val *SyncHSMInfo) Size() int {
+	return proto.Size(val)
+}
+
+// Equal returns whether two SyncHSMInfo values are equivalent by recursively
+// comparing the message's fields.
+// For more information see the documentation for
+// https://pkg.go.dev/google.golang.org/protobuf/proto#Equal
+func (this *SyncHSMInfo) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	var that1 *SyncHSMInfo
+	switch t := that.(type) {
+	case *SyncHSMInfo:
+		that1 = t
+	case SyncHSMInfo:
+		that1 = &t
+	default:
+		return false
+	}
+
+	return proto.Equal(this, that1)
+}
+
+// Marshal an object of type SyncHSMRequest to the protobuf v3 wire format
+func (val *SyncHSMRequest) Marshal() ([]byte, error) {
+	return proto.Marshal(val)
+}
+
+// Unmarshal an object of type SyncHSMRequest from the protobuf v3 wire format
+func (val *SyncHSMRequest) Unmarshal(buf []byte) error {
+	return proto.Unmarshal(buf, val)
+}
+
+// Size returns the size of the object, in bytes, once serialized
+func (val *SyncHSMRequest) Size() int {
+	return proto.Size(val)
+}
+
+// Equal returns whether two SyncHSMRequest values are equivalent by recursively
+// comparing the message's fields.
+// For more information see the documentation for
+// https://pkg.go.dev/google.golang.org/protobuf/proto#Equal
+func (this *SyncHSMRequest) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	var that1 *SyncHSMRequest
+	switch t := that.(type) {
+	case *SyncHSMRequest:
+		that1 = t
+	case SyncHSMRequest:
+		that1 = &t
+	default:
+		return false
+	}
+
+	return proto.Equal(this, that1)
+}
+
 // Marshal an object of type DescribeMutableStateRequest to the protobuf v3 wire format
 func (val *DescribeMutableStateRequest) Marshal() ([]byte, error) {
 	return proto.Marshal(val)

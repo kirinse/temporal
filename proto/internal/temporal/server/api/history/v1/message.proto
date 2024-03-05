@@ -50,6 +50,15 @@ message VersionHistory {
     repeated VersionHistoryItem items = 2;
 }
 
+message StateTransitionVersionRange {
+    int64 max_transition_id = 1;
+    int64 version = 2;
+}
+
+message StateTransitionVersionHistory {
+    repeated StateTransitionVersionRange version_ranges  = 1;
+}
+
 // VersionHistories contains all version histories from all branches.
 message VersionHistories {
     int32 current_version_history_index = 1;
