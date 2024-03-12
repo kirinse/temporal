@@ -28,6 +28,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -118,10 +119,16 @@ func NewLocalStoreTlsProvider(tlsConfig *config.RootTLS, metricsHandler metrics.
 	fe := certProviderFactory(&tlsConfig.Frontend, nil, nil, tlsConfig.RefreshInterval, logger)
 	fe.FetchServerCertificate()
 
+	// identityCerts, err := loadTemporalIdentityCerts(logger, &IdentityCertsConfig{
+	// 	IdentityCertPath:  "/Users/haifengh/workspace/self-managed/s-cgs-uw2-j/temporal-identity/tls.crt",
+	// 	IdentityKeyPath:   "/Users/haifengh/workspace/self-managed/s-cgs-uw2-j/temporal-identity/tls.key",
+	// 	TrustDomainCAPath: "/Users/haifengh/workspace/self-managed/s-cgs-uw2-j/temporal-trust-domain-ca/tls.crt",
+	// })
+
 	identityCerts, err := loadTemporalIdentityCerts(logger, &IdentityCertsConfig{
-		IdentityCertPath:  "/Users/haifengh/workspace/self-managed/s-cgs-uw2-j/temporal-identity/tls.crt",
-		IdentityKeyPath:   "/Users/haifengh/workspace/self-managed/s-cgs-uw2-j/temporal-identity/tls.key",
-		TrustDomainCAPath: "/Users/haifengh/workspace/self-managed/s-cgs-uw2-j/temporal-trust-domain-ca/tls.crt",
+		IdentityCertPath:  os.Getenv("TEMPORAL_IDENTITY_CERT_PATH"),
+		IdentityKeyPath:   os.Getenv("TEMPORAL_IDENTITY_KEY_PATH"),
+		TrustDomainCAPath: os.Getenv("TEMPORAL_TRUST_DOMAIN_CA_PATH"),
 	})
 	if err != nil {
 		return nil, err

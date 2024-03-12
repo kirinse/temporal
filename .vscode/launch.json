@@ -19,6 +19,11 @@
 			"mode": "debug",
 			"program": "${workspaceFolder}/cmd/server",
 			"cwd": "${workspaceFolder}",
+			"env": {
+				"TEMPORAL_IDENTITY_CERT_PATH": "/Users/haifengh/workspace/self-managed/s-cgs-uw2-j/temporal-identity/tls.crt",
+				"TEMPORAL_IDENTITY_KEY_PATH": "/Users/haifengh/workspace/self-managed/s-cgs-uw2-j/temporal-identity/tls.key",
+				"TEMPORAL_TRUST_DOMAIN_CA_PATH": "/Users/haifengh/workspace/self-managed/s-cgs-uw2-j/temporal-trust-domain-ca/tls.crt"
+			  },			
 			"args": [
 				"--env",
 				"development-self",
