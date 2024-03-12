@@ -28,6 +28,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -37,6 +38,14 @@ import (
 	"go.temporal.io/server/common/auth"
 	"go.temporal.io/server/common/config"
 	"go.temporal.io/server/common/log"
+)
+
+type (
+	IdentityCertsConfig struct {
+		IdentityCertPath  string
+		IdentityKeyPath   string
+		TrustDomainCAPath string
+	}
 )
 
 type CertProviderFactory func(
@@ -58,6 +67,8 @@ type localStoreTlsProvider struct {
 	remoteClusterClientCertProvider map[string]CertProvider
 	frontendPerHostCertProviderMap  *localStorePerHostCertProviderMap
 
+	identityCertProvider CertProvider
+
 	cachedInternodeServerConfig     *tls.Config
 	cachedInternodeClientConfig     *tls.Config
 	cachedFrontendServerConfig      *tls.Config
@@ -72,6 +83,20 @@ type localStoreTlsProvider struct {
 
 var _ TLSConfigProvider = (*localStoreTlsProvider)(nil)
 var _ CertExpirationChecker = (*localStoreTlsProvider)(nil)
+
+func loadTemporalIdentityCerts(logger log.Logger, identityCertsConfig *IdentityCertsConfig) (*config.GroupTLS, error) {
+	groupTLS := config.GroupTLS{
+		// This is used to construct client for inter cell connections (i.e. replication).
+		Server: config.ServerTLS{
+			CertFile:      identityCertsConfig.IdentityCertPath,
+			KeyFile:       identityCertsConfig.IdentityKeyPath,
+			ClientCAFiles: []string{identityCertsConfig.TrustDomainCAPath},
+		},
+	}
+
+	logger.Info("Successfully loaded Temporal server identity certificates.")
+	return &groupTLS, nil
+}
 
 func NewLocalStoreTlsProvider(tlsConfig *config.RootTLS, metricsHandler metrics.Handler, logger log.Logger, certProviderFactory CertProviderFactory,
 ) (TLSConfigProvider, error) {
@@ -90,11 +115,25 @@ func NewLocalStoreTlsProvider(tlsConfig *config.RootTLS, metricsHandler metrics.
 		remoteClusterClientCertProvider[hostname] = certProviderFactory(&groupTLS, nil, nil, tlsConfig.RefreshInterval, logger)
 	}
 
+	fe := certProviderFactory(&tlsConfig.Frontend, nil, nil, tlsConfig.RefreshInterval, logger)
+	fe.FetchServerCertificate()
+
+	identityCerts, err := loadTemporalIdentityCerts(logger, &IdentityCertsConfig{
+		IdentityCertPath:  "/Users/haifengh/workspace/self-managed/s-cgs-uw2-j/temporal-identity/tls.crt",
+		IdentityKeyPath:   "/Users/haifengh/workspace/self-managed/s-cgs-uw2-j/temporal-identity/tls.key",
+		TrustDomainCAPath: "/Users/haifengh/workspace/self-managed/s-cgs-uw2-j/temporal-trust-domain-ca/tls.crt",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	id := NewLocalStoreCertProvider(identityCerts, nil, nil, time.Minute, logger)
 	provider := &localStoreTlsProvider{
 		internodeCertProvider:       internodeProvider,
 		internodeClientCertProvider: internodeProvider,
-		frontendCertProvider:        certProviderFactory(&tlsConfig.Frontend, nil, nil, tlsConfig.RefreshInterval, logger),
+		frontendCertProvider:        fe,
 		workerCertProvider:          workerProvider,
+		identityCertProvider:        id,
 		frontendPerHostCertProviderMap: newLocalStorePerHostCertProviderMap(
 			tlsConfig.Frontend.PerHostOverrides, certProviderFactory, tlsConfig.RefreshInterval, logger),
 		remoteClusterClientCertProvider: remoteClusterClientCertProvider,
@@ -163,7 +202,67 @@ func (s *localStoreTlsProvider) GetFrontendClientConfig() (*tls.Config, error) {
 	)
 }
 
-func (s *localStoreTlsProvider) GetRemoteClusterClientConfig(hostname string) (*tls.Config, error) {
+func getClientCertificate(certProvider CertProvider) (*tls.Certificate, error) {
+	cert, err := certProvider.FetchClientCertificate(false)
+	if err != nil {
+		return nil, err
+	}
+	if cert == nil {
+		return nil, fmt.Errorf("client auth required, but no certificate provided")
+	}
+	return cert, nil
+}
+
+func newRemoteFrontendClientTLSConfig(
+	hostName string,
+	certProvider CertProvider,
+) (*tls.Config, error) {
+	enableHostVerification := false
+	// Only enable host verification for V2 cells for now.
+	if strings.HasPrefix(hostName, "replication.") {
+		enableHostVerification = true
+	}
+
+	clientTLSConfig := auth.NewTLSConfigForServer(hostName, enableHostVerification)
+	clientTLSConfig.GetClientCertificate = func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+		return getClientCertificate(certProvider)
+	}
+
+	caPool, err := certProvider.FetchClientCAs()
+	if err != nil {
+		return nil, err
+	}
+	clientTLSConfig.RootCAs = caPool
+
+	return clientTLSConfig, nil
+}
+
+func (s *localStoreTlsProvider) GetRemoteClusterClientConfig(hostName string) (*tls.Config, error) {
+	certProvider := s.identityCertProvider
+
+	if certProvider == nil {
+		return nil, fmt.Errorf("server identity cert does not exist")
+	}
+
+	return newRemoteFrontendClientTLSConfig(hostName, certProvider)
+}
+
+func (s *localStoreTlsProvider) GetRemoteClusterClientConfig_1(hostname string) (*tls.Config, error) {
+	clientTLSConfig := auth.NewTLSConfigForServer(hostname, false)
+	clientTLSConfig.GetClientCertificate = func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+		return s.frontendCertProvider.FetchServerCertificate()
+	}
+
+	caPool, err := s.frontendCertProvider.FetchServerRootCAsForClient(false)
+	if err != nil {
+		return nil, err
+	}
+	clientTLSConfig.RootCAs = caPool
+
+	return clientTLSConfig, nil
+}
+
+func (s *localStoreTlsProvider) GetRemoteClusterClientConfig_0(hostname string) (*tls.Config, error) {
 	groupTLS, ok := s.settings.RemoteClusters[hostname]
 	if !ok {
 		return nil, nil
