@@ -63,13 +63,24 @@ global:
       framework: "tally"
       timerType: "histogram"
       listenAddress: "127.0.0.1:8000"
-
+  tls:
+    frontend:
+        server:
+            requireClientAuth: false
+            certFile: /home/ec2-user/certs/s-cgs-uw2-j/temporal-identity/tls.crt
+            keyFile: /home/ec2-user/certs/s-cgs-uw2-j/temporal-identity/tls.key
+        client:
+            serverName: s-cgs-uw2-j
+            disableHostVerification: true
+            rootCaFiles:
+              - /home/ec2-user/certs/s-cgs-uw2-j/temporal-trust-domain-ca/tls.crt
 services:
   frontend:
     rpc:
       grpcPort: 7233
       membershipPort: 6933
-      bindOnLocalHost: true
+      # bindOnLocalHost: true
+      bindOnIP: "0.0.0.0"
       httpPort: 7243
 
   matching:
