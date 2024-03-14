@@ -43,20 +43,14 @@ import (
 	historypb "go.temporal.io/api/history/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/temporalproto"
-	"go.temporal.io/api/workflowservice/v1"
 	sdkclient "go.temporal.io/sdk/client"
 	sdkworker "go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
-	"go.uber.org/atomic"
-	"go.uber.org/fx"
-	"google.golang.org/protobuf/types/known/durationpb"
-
 	enumspb "go.temporal.io/server/api/enums/v1"
 	persistencespb "go.temporal.io/server/api/persistence/v1"
 	replicationspb "go.temporal.io/server/api/replication/v1"
 	"go.temporal.io/server/common/dynamicconfig"
 	"go.temporal.io/server/common/log"
-	"go.temporal.io/server/common/namespace"
 	"go.temporal.io/server/common/persistence/serialization"
 	"go.temporal.io/server/common/primitives"
 	"go.temporal.io/server/service/history/replication"
@@ -64,6 +58,8 @@ import (
 	"go.temporal.io/server/tests"
 	"go.temporal.io/server/tools/tdbg"
 	"go.temporal.io/server/tools/tdbg/tdbgtest"
+	"go.uber.org/atomic"
+	"go.uber.org/fx"
 )
 
 // This file contains tests for the history replication DLQ feature. It uses a faulty replication task executor to force
@@ -86,9 +82,9 @@ type (
 		// The below "params" objects are used to propagate parameters to the dependencies that we inject into the
 		// Temporal server. Mainly, we use this to share channels between the main test goroutine and the background
 		// task processing goroutines so that we can synchronize on them.
-		replicationTaskExecutors          replicationTaskExecutorParams
-		namespaceReplicationTaskExecutors namespaceReplicationTaskExecutorParams
-		dlqWriters                        dlqWriterParams
+		replicationTaskExecutors     replicationTaskExecutorParams
+		namespaceReplicationObserver *namespaceReplicationObserver
+		dlqWriters                   dlqWriterParams
 	}
 
 	// The below types are used to inject our own implementations of replication dependencies, so that we can both
@@ -111,14 +107,6 @@ type (
 	testDLQWriter struct {
 		*dlqWriterParams
 		replication.DLQWriter
-	}
-	namespaceReplicationTaskExecutorParams struct {
-		// This channel is sent to once we're done processing a namespace replication task.
-		tasks chan *replicationspb.NamespaceTaskAttributes
-	}
-	testNamespaceReplicationTaskExecutor struct {
-		*namespaceReplicationTaskExecutorParams
-		replicationTaskExecutor namespace.ReplicationTaskExecutor
 	}
 	testExecutableTaskConverter struct {
 		*replicationTaskExecutorParams
@@ -182,7 +170,7 @@ func (s *historyReplicationDLQSuite) SetupSuite() {
 
 	// We don't know how many messages these channels are actually going to produce, and we may not read them all, so we
 	// need to buffer them by a good amount.
-	s.namespaceReplicationTaskExecutors.tasks = make(chan *replicationspb.NamespaceTaskAttributes, 100)
+	s.namespaceReplicationObserver = NewNamespaceReplicationObserver()
 	s.replicationTaskExecutors.executedTasks = make(chan *replicationspb.ReplicationTask, 100)
 	s.dlqWriters.processedDLQRequests = make(chan replication.DLQWriteRequest, 100)
 	workflowIDToFail := uuid.New()
@@ -194,6 +182,7 @@ func (s *historyReplicationDLQSuite) SetupSuite() {
 	format := strings.Replace(uuid.New(), "-", "", -1) + "_%s"
 	taskExecutorDecorator := s.getTaskExecutorDecorator()
 	s.logger = log.NewNoopLogger()
+	replicationObserver := s.namespaceReplicationObserver
 	s.setupSuite(
 		[]string{
 			fmt.Sprintf(format, "active"),
@@ -212,16 +201,7 @@ func (s *historyReplicationDLQSuite) SetupSuite() {
 				},
 			),
 		),
-		tests.WithFxOptionsForService(primitives.WorkerService,
-			fx.Decorate(
-				func(executor namespace.ReplicationTaskExecutor) namespace.ReplicationTaskExecutor {
-					return &testNamespaceReplicationTaskExecutor{
-						replicationTaskExecutor:                executor,
-						namespaceReplicationTaskExecutorParams: &s.namespaceReplicationTaskExecutors,
-					}
-				},
-			),
-		),
+		replicationObserver.ServerOption(),
 	)
 }
 
@@ -246,17 +226,7 @@ func (s *historyReplicationDLQSuite) TestWorkflowReplicationTaskFailure() {
 
 	// Register a namespace.
 	ns := "history-replication-dlq-test-namespace"
-	_, err := s.cluster1.GetFrontendClient().RegisterNamespace(ctx, &workflowservice.RegisterNamespaceRequest{
-		Namespace: ns,
-		Clusters:  s.clusterReplicationConfig(),
-		// The first cluster is the active cluster.
-		ActiveClusterName: s.clusterNames[0],
-		// Needed so that the namespace is replicated.
-		IsGlobalNamespace: true,
-		// This is a required parameter.
-		WorkflowExecutionRetentionPeriod: durationpb.New(time.Hour * 24),
-	})
-	s.NoError(err)
+	s.registerNamespace(ctx, ns)
 
 	// Create a worker and register a workflow on the active cluster.
 	activeClient, err := sdkclient.Dial(sdkclient.Options{
@@ -399,16 +369,7 @@ func (s *historyReplicationDLQSuite) waitUntilReplicationTasksAreInDLQ(
 // waitForNSReplication blocks until the namespace has been replicated. We want to do this because replication tasks
 // will get dropped if the namespace does not exist.
 func (s *historyReplicationDLQSuite) waitForNSReplication(ctx context.Context, ns string) {
-	for {
-		select {
-		case task := <-s.namespaceReplicationTaskExecutors.tasks:
-			if task.Info.Name == ns {
-				return
-			}
-		case <-ctx.Done():
-			s.FailNow("timed out waiting for namespace replication task to be processed")
-		}
-	}
+	s.NoError(s.namespaceReplicationObserver.BlockUntilReplicated(ctx, ns))
 }
 
 // waitUntilWorkflowReplicated waits until the workflow with the given ID has been replicated to the standby cluster.
@@ -546,20 +507,6 @@ func (s *historyReplicationDLQSuite) getTaskExecutorDecorator() interface{} {
 			}
 		}
 	}
-}
-
-// Execute the replication task as-normal, but also send it to the channel so that the test can wait for it to
-// know that the namespace data has been replicated.
-func (t *testNamespaceReplicationTaskExecutor) Execute(
-	ctx context.Context,
-	task *replicationspb.NamespaceTaskAttributes,
-) error {
-	err := t.replicationTaskExecutor.Execute(ctx, task)
-	if err != nil {
-		return err
-	}
-	t.tasks <- task
-	return nil
 }
 
 // WriteTaskToDLQ is the same as the normal dlq writer, but also sends the request to the channel so that the test can

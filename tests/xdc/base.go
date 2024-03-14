@@ -29,6 +29,7 @@
 package xdc
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -36,7 +37,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	replicationpb "go.temporal.io/api/replication/v1"
+	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/server/common/testing/historyrequire"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"gopkg.in/yaml.v3"
 
 	"go.temporal.io/server/api/adminservice/v1"
@@ -156,4 +159,18 @@ func (s *xdcBaseSuite) setupTest() {
 	s.Assertions = require.New(s.T())
 	s.ProtoAssertions = protorequire.New(s.T())
 	s.HistoryRequire = historyrequire.New(s.T())
+}
+
+func (s *xdcBaseSuite) registerNamespace(ctx context.Context, ns string) {
+	_, err := s.cluster1.GetFrontendClient().RegisterNamespace(ctx, &workflowservice.RegisterNamespaceRequest{
+		Namespace: ns,
+		Clusters:  s.clusterReplicationConfig(),
+		// The first cluster is the active cluster.
+		ActiveClusterName: s.clusterNames[0],
+		// Needed so that the namespace is replicated.
+		IsGlobalNamespace: true,
+		// This is a required parameter.
+		WorkflowExecutionRetentionPeriod: durationpb.New(time.Hour * 24),
+	})
+	s.NoError(err)
 }
