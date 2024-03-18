@@ -46,6 +46,14 @@ func (ch *commandHandler) HandleScheduleCommand(
 	workflowTaskCompletedEventID int64,
 	command *commandpb.Command,
 ) error {
+	nsName := ms.GetNamespaceEntry().Name().String()
+	if !ch.config.Enabled(nsName) {
+		return workflow.FailWorkflowTaskError{
+			Cause:   enumspb.WORKFLOW_TASK_FAILED_CAUSE_FEATURE_DISABLED,
+			Message: "Nexus operations disabled for this workflow's namespace",
+		}
+	}
+
 	attrs := command.GetScheduleNexusOperationCommandAttributes()
 	if attrs == nil {
 		return workflow.FailWorkflowTaskError{
@@ -56,14 +64,12 @@ func (ch *commandHandler) HandleScheduleCommand(
 
 	// TODO: validate service is in outgoing service registry when we have this information in the namespace entry.
 
-	nsName := ms.GetNamespaceEntry().Name()
-
-	if len(attrs.Operation) > ch.config.MaxOperationNameLength(string(nsName)) {
+	if len(attrs.Operation) > ch.config.MaxOperationNameLength(nsName) {
 		return workflow.FailWorkflowTaskError{
 			Cause: enumspb.WORKFLOW_TASK_FAILED_CAUSE_BAD_SCHEDULE_NEXUS_OPERATION_ATTRIBUTES,
 			Message: fmt.Sprintf(
 				"ScheduleNexusOperationCommandAttributes.Operation exceeds length limit of %d",
-				ch.config.MaxOperationNameLength(string(nsName)),
+				ch.config.MaxOperationNameLength(nsName),
 			),
 		}
 	}
@@ -78,8 +84,8 @@ func (ch *commandHandler) HandleScheduleCommand(
 
 	root := ms.HSM()
 	coll := nexusoperations.MachineCollection(root)
-	maxPendingOperations := ch.config.MaxConcurrentOperations(string(nsName))
-	if coll.Size() >= ch.config.MaxConcurrentOperations(string(nsName)) {
+	maxPendingOperations := ch.config.MaxConcurrentOperations(nsName)
+	if coll.Size() >= ch.config.MaxConcurrentOperations(nsName) {
 		return workflow.FailWorkflowTaskError{
 			Cause:   enumspb.WORKFLOW_TASK_FAILED_CAUSE_PENDING_NEXUS_OPERATIONS_LIMIT_EXCEEDED,
 			Message: fmt.Sprintf("workflow has reached the pending nexus operation limit of %d for this namespace", maxPendingOperations),
@@ -100,6 +106,7 @@ func (ch *commandHandler) HandleScheduleCommand(
 				Operation:                    attrs.Operation,
 				Input:                        attrs.Input,
 				Timeout:                      attrs.Timeout,
+				Header:                       attrs.Header,
 				RequestId:                    uuid.NewString(),
 				WorkflowTaskCompletedEventId: workflowTaskCompletedEventID,
 			},
@@ -109,12 +116,20 @@ func (ch *commandHandler) HandleScheduleCommand(
 	return err
 }
 
-func (ch *commandHandler) RequestCancelHandler(
+func (ch *commandHandler) HandleCancelCommand(
 	ms workflow.MutableState,
 	validator workflow.CommandValidator,
 	workflowTaskCompletedEventID int64,
 	command *commandpb.Command,
 ) error {
+	nsName := ms.GetNamespaceEntry().Name().String()
+	if !ch.config.Enabled(nsName) {
+		return workflow.FailWorkflowTaskError{
+			Cause:   enumspb.WORKFLOW_TASK_FAILED_CAUSE_FEATURE_DISABLED,
+			Message: "Nexus operations disabled for this workflow's namespace",
+		}
+	}
+
 	attrs := command.GetRequestCancelNexusOperationCommandAttributes()
 	if attrs == nil {
 		return workflow.FailWorkflowTaskError{
@@ -160,5 +175,5 @@ func RegisterCommandHandlers(reg *workflow.CommandHandlerRegistry, config *nexus
 	if err := reg.Register(enumspb.COMMAND_TYPE_SCHEDULE_NEXUS_OPERATION, h.HandleScheduleCommand); err != nil {
 		return err
 	}
-	return reg.Register(enumspb.COMMAND_TYPE_REQUEST_CANCEL_NEXUS_OPERATION, h.RequestCancelHandler)
+	return reg.Register(enumspb.COMMAND_TYPE_REQUEST_CANCEL_NEXUS_OPERATION, h.HandleCancelCommand)
 }

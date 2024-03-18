@@ -347,16 +347,6 @@ func (handler *workflowTaskHandlerImpl) handleCommand(
 	}
 }
 
-type commandValidator struct {
-	sizeChecker *workflowSizeChecker
-	commandType enumspb.CommandType
-}
-
-func (v commandValidator) IsValidPayloadSize(size int) bool {
-	err := v.sizeChecker.checkIfPayloadSizeExceedsLimit(metrics.CommandTypeTag(v.commandType.String()), size, "")
-	return err == nil
-}
-
 func (handler *workflowTaskHandlerImpl) handleMessage(
 	ctx context.Context,
 	message *protocolpb.Message,
@@ -1478,4 +1468,15 @@ func (c *workflowTaskFailedCause) Message() string {
 	}
 
 	return fmt.Sprintf("%v: %v", c.failedCause, c.causeErr.Error())
+}
+
+// commandValidator implements [workflow.CommandValidator] for use in registered command handlers.
+type commandValidator struct {
+	sizeChecker *workflowSizeChecker
+	commandType enumspb.CommandType
+}
+
+func (v commandValidator) IsValidPayloadSize(size int) bool {
+	err := v.sizeChecker.checkIfPayloadSizeExceedsLimit(metrics.CommandTypeTag(v.commandType.String()), size, "")
+	return err == nil
 }

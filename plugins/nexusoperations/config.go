@@ -28,6 +28,9 @@ import (
 	"go.temporal.io/server/common/dynamicconfig"
 )
 
+// Enabled toggles accepting of API requests and workflow commands that create or modify Nexus operations.
+const Enabled = dynamicconfig.Key("plugin.nexusoperations.enabled")
+
 // InvocationTaskTimeout is the timeout for executing a single nexus invocation task (controls both cancel and start
 // requests).
 const InvocationTaskTimeout = dynamicconfig.Key("plugin.nexusoperations.invocation.taskTimeout")
@@ -42,6 +45,7 @@ const MaxConcurrentOperations = dynamicconfig.Key("plugin.nexusoperations.limit.
 const MaxOperationNameLength = dynamicconfig.Key("plugin.nexusoperations.limit.operation.name.length")
 
 type Config struct {
+	Enabled                 dynamicconfig.BoolPropertyFnWithNamespaceFilter
 	InvocationTaskTimeout   dynamicconfig.DurationPropertyFnWithNamespaceFilter
 	MaxConcurrentOperations dynamicconfig.IntPropertyFnWithNamespaceFilter
 	MaxOperationNameLength  dynamicconfig.IntPropertyFnWithNamespaceFilter
@@ -49,6 +53,7 @@ type Config struct {
 
 func ConfigProvider(dc *dynamicconfig.Collection) *Config {
 	return &Config{
+		Enabled:                 dc.GetBoolPropertyFnWithNamespaceFilter(Enabled, false),
 		InvocationTaskTimeout:   dc.GetDurationPropertyFilteredByNamespace(InvocationTaskTimeout, time.Second*10),
 		MaxConcurrentOperations: dc.GetIntPropertyFilteredByNamespace(MaxConcurrentOperations, 1000),
 		MaxOperationNameLength:  dc.GetIntPropertyFilteredByNamespace(MaxOperationNameLength, 1000),
