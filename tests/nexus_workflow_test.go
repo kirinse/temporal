@@ -23,10 +23,12 @@
 package tests
 
 import (
+	"slices"
 	"time"
 
 	commandpb "go.temporal.io/api/command/v1"
 	"go.temporal.io/api/enums/v1"
+	historypb "go.temporal.io/api/history/v1"
 	"go.temporal.io/api/taskqueue/v1"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
@@ -88,6 +90,11 @@ func (s *ClientFunctionalSuite) TestNexusScheduleAndCancelCommands() {
 		Identity: "test",
 	})
 	s.NoError(err)
+	scheduledEventIdx := slices.IndexFunc(pollResp.History.Events, func(e *historypb.HistoryEvent) bool {
+		return e.GetNexusOperationScheduledEventAttributes() != nil
+	})
+	s.Greater(scheduledEventIdx, 0)
+
 	_, err = s.engine.RespondWorkflowTaskCompleted(ctx, &workflowservice.RespondWorkflowTaskCompletedRequest{
 		Identity:                   "test",
 		ReturnNewWorkflowTask:      true,
@@ -98,7 +105,7 @@ func (s *ClientFunctionalSuite) TestNexusScheduleAndCancelCommands() {
 				CommandType: enums.COMMAND_TYPE_REQUEST_CANCEL_NEXUS_OPERATION,
 				Attributes: &commandpb.Command_RequestCancelNexusOperationCommandAttributes{
 					RequestCancelNexusOperationCommandAttributes: &commandpb.RequestCancelNexusOperationCommandAttributes{
-						ScheduledEventId: 5, // First event after WEStarted, WFT triple.
+						ScheduledEventId: pollResp.History.Events[scheduledEventIdx].EventId,
 					},
 				},
 			},
