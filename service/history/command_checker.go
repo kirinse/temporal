@@ -953,7 +953,8 @@ func (v *commandAttrValidator) validateCommandSequence(
 			enumspb.COMMAND_TYPE_CANCEL_WORKFLOW_EXECUTION:
 			closeCommand = command.GetCommandType()
 		default:
-			// Why is this the default? Can't we assume that any specified command is by default not a close command?
+			// The default is to fail with invalid argument to force authors of new commands to consider whether it's a
+			// close command however unlikely that may be.
 			return serviceerror.NewInvalidArgument(fmt.Sprintf("unknown command type: %v", command.GetCommandType()))
 		}
 	}

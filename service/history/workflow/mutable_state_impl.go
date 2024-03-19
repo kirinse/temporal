@@ -425,10 +425,6 @@ func NewMutableStateFromDB(
 		}
 	}
 
-	// Proto serialization replaces empty maps with nils, ensure this map is never nil.
-	if mutableState.executionInfo.SubStateMachinesByType == nil {
-		mutableState.executionInfo.SubStateMachinesByType = make(map[int32]*persistencespb.StateMachineMap)
-	}
 	mutableState.mustInitHSM()
 
 	return mutableState, nil
