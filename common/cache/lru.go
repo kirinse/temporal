@@ -313,7 +313,7 @@ func (c *lru) putInternal(key interface{}, value interface{}, allowUpdate bool) 
 				existingEntry.value = value
 				existingEntry.size = newEntrySize
 				c.currSize = newCacheSize
-				metrics.CacheSize.With(c.metricsHandler).Record(float64(c.currSize))
+				metrics.CacheUsage.With(c.metricsHandler).Record(float64(c.currSize))
 				c.updateEntryTTL(existingEntry)
 			}
 

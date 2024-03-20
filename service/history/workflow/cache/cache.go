@@ -28,6 +28,7 @@ package cache
 
 import (
 	"context"
+	"fmt"
 	"sync/atomic"
 	"time"
 	"unicode/utf8"
@@ -106,6 +107,7 @@ func NewHostLevelCache(
 	config *configs.Config,
 	handler metrics.Handler,
 ) Cache {
+	fmt.Println("PPV: Creating host level cache")
 	return newCache(
 		config.HistoryHostLevelCacheMaxSize(),
 		config.HistoryCacheTTL(),
@@ -118,6 +120,7 @@ func NewShardLevelCache(
 	config *configs.Config,
 	handler metrics.Handler,
 ) Cache {
+	fmt.Println("PPV: Creating shard level cache")
 	return newCache(
 		config.HistoryShardLevelCacheMaxSize(),
 		config.HistoryCacheTTL(),
