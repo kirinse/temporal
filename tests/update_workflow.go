@@ -79,7 +79,7 @@ func (s *FunctionalSuite) sendUpdate(tv *testvars.TestVars, updateID string) (*w
 	return s.sendUpdateWithWaitPolicy(tv, updateID, nil)
 }
 
-func (s *FunctionalSuite) sendUpdateWaitPolicyAccepted(tv *testvars.TestVars, updateID string) (*workflowservice.UpdateWorkflowExecutionResponse, error) {
+func (s *FunctionalSuite) SendUpdateWaitPolicyAccepted(tv *testvars.TestVars, updateID string) (*workflowservice.UpdateWorkflowExecutionResponse, error) {
 	return s.sendUpdateWithWaitPolicy(tv, updateID, &updatepb.WaitPolicy{LifecycleStage: enumspb.UPDATE_WORKFLOW_EXECUTION_LIFECYCLE_STAGE_ACCEPTED})
 }
 
