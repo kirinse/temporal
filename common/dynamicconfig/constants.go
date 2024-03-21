@@ -29,6 +29,7 @@ func (k Key) String() string {
 }
 
 const (
+	HistoryShouldFailReplicationTask = "history.shouldFailReplicationTask"
 	// keys for admin
 
 	// AdminEnableListHistoryTasks is the key for enabling listing history tasks
