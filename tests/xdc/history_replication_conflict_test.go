@@ -213,8 +213,8 @@ func (s *historyReplicationConflictTestSuite) TestConflictResolutionReappliesUpd
 	// Both clusters now believe they are active and hence both will accept an update.
 
 	// Send updates
-	s.sendUpdateAndProcessWFT(ctx, runId, "cluster1-update", sdkClient1, s.cluster1)
-	s.sendUpdateAndProcessWFT(ctx, runId, "cluster2-update", sdkClient2, s.cluster2)
+	s.sendUpdateAndProcessWFT(ctx, runId, "cluster1-update", "cluster1-update-input", sdkClient1, s.cluster1)
+	s.sendUpdateAndProcessWFT(ctx, runId, "cluster2-update", "cluster2-update-input", sdkClient2, s.cluster2)
 
 	// cluster1 has accepted an update
 	s.HistoryRequire.EqualHistoryEventsAndVersions(`
@@ -222,7 +222,7 @@ func (s *historyReplicationConflictTestSuite) TestConflictResolutionReappliesUpd
 	2 WorkflowTaskScheduled
 	3 WorkflowTaskStarted
 	4 WorkflowTaskCompleted
-	5 WorkflowExecutionUpdateAccepted {"AcceptedRequest": {"Input": {"Args": {"Payloads": [{"Data": "\"cluster1-update\""}]}}}}
+	5 WorkflowExecutionUpdateAccepted {"AcceptedRequest": {"Input": {"Args": {"Payloads": [{"Data": "\"cluster1-update-input\""}]}}}}
 	`, s.getHistory(ctx, s.cluster1, runId), []int{1, 1, 1, 1, 1})
 
 	// cluster2 has also accepted an update (events have failover version 2 since they are endogenous to cluster 2)
@@ -231,7 +231,7 @@ func (s *historyReplicationConflictTestSuite) TestConflictResolutionReappliesUpd
 	2 WorkflowTaskScheduled
 	3 WorkflowTaskStarted
 	4 WorkflowTaskCompleted
-	5 WorkflowExecutionUpdateAccepted {"AcceptedRequest": {"Input": {"Args": {"Payloads": [{"Data": "\"cluster2-update\""}]}}}}
+	5 WorkflowExecutionUpdateAccepted {"AcceptedRequest": {"Input": {"Args": {"Payloads": [{"Data": "\"cluster2-update-input\""}]}}}}
 	`, s.getHistory(ctx, s.cluster2, runId), []int{1, 1, 2, 2, 2})
 
 	// Execute pending history replication tasks. Both clusters believe they are active, therefore each cluster sends
@@ -245,7 +245,7 @@ func (s *historyReplicationConflictTestSuite) TestConflictResolutionReappliesUpd
 	2 WorkflowTaskScheduled
 	3 WorkflowTaskStarted
 	4 WorkflowTaskCompleted
-	5 WorkflowExecutionUpdateAccepted {"AcceptedRequest": {"Input": {"Args": {"Payloads": [{"Data": "\"cluster2-update\""}]}}}}
+	5 WorkflowExecutionUpdateAccepted {"AcceptedRequest": {"Input": {"Args": {"Payloads": [{"Data": "\"cluster2-update-input\""}]}}}}
 	`, s.getHistory(ctx, s.cluster1, runId), []int{1, 1, 2, 2, 2})
 
 	// cluster2 has reapplied the accepted update from cluster 1 on top of its own update, changing it from state
@@ -255,8 +255,8 @@ func (s *historyReplicationConflictTestSuite) TestConflictResolutionReappliesUpd
 	2 WorkflowTaskScheduled
 	3 WorkflowTaskStarted
 	4 WorkflowTaskCompleted
-	5 WorkflowExecutionUpdateAccepted {"AcceptedRequest": {"Input": {"Args": {"Payloads": [{"Data": "\"cluster2-update\""}]}}}}
-	6 WorkflowExecutionUpdateRequested {"Request": {"Input": {"Args": {"Payloads": [{"Data": "\"cluster1-update\""}]}}}}
+	5 WorkflowExecutionUpdateAccepted {"AcceptedRequest": {"Input": {"Args": {"Payloads": [{"Data": "\"cluster2-update-input\""}]}}}}
+	6 WorkflowExecutionUpdateRequested {"Request": {"Input": {"Args": {"Payloads": [{"Data": "\"cluster1-update-input\""}]}}}}
 	7 WorkflowTaskScheduled
 	`, s.getHistory(ctx, s.cluster2, runId), []int{1, 1, 2, 2, 2, 2, 2})
 }
@@ -379,7 +379,7 @@ func (t *hrcTestExecutableTask) Execute() error {
 }
 
 // Update test utilities
-func (s *historyReplicationConflictTestSuite) sendUpdateAndProcessWFT(ctx context.Context, runId string, arg string, sdkClient sdkclient.Client, cluster *tests.TestCluster) {
+func (s *historyReplicationConflictTestSuite) sendUpdateAndProcessWFT(ctx context.Context, runId string, updateId string, arg string, sdkClient sdkclient.Client, cluster *tests.TestCluster) {
 	poller := &tests.TaskPoller{
 		Engine:              cluster.GetFrontendClient(),
 		Namespace:           s.tv.NamespaceName().String(),
@@ -395,7 +395,7 @@ func (s *historyReplicationConflictTestSuite) sendUpdateAndProcessWFT(ctx contex
 	pollResponse := make(chan error)
 	go func() {
 		_, err := sdkClient.UpdateWorkflowWithOptions(ctx, &sdkclient.UpdateWorkflowWithOptionsRequest{
-			UpdateID:   s.tv.UpdateID(),
+			UpdateID:   updateId,
 			WorkflowID: s.tv.WorkflowID(),
 			RunID:      runId,
 			UpdateName: "the-test-doesn't-use-this",
@@ -417,11 +417,13 @@ func (s *historyReplicationConflictTestSuite) sendUpdateAndProcessWFT(ctx contex
 	s.NoError(<-pollResponse)
 }
 
-func (s *historyReplicationConflictTestSuite) messageHandler(_ *workflowservice.PollWorkflowTaskQueueResponse) ([]*protocolpb.Message, error) {
+func (s *historyReplicationConflictTestSuite) messageHandler(resp *workflowservice.PollWorkflowTaskQueueResponse) ([]*protocolpb.Message, error) {
+	s.Equal(1, len(resp.Messages))
+	msg := resp.Messages[0]
 	return []*protocolpb.Message{
 		{
 			Id:                 "accept-msg-id",
-			ProtocolInstanceId: s.tv.UpdateID(),
+			ProtocolInstanceId: msg.ProtocolInstanceId,
 			Body: protoutils.MarshalAny(s.T(), &updatepb.Acceptance{
 				AcceptedRequestMessageId:         "request-msg-id",
 				AcceptedRequestSequencingEventId: int64(-1),
