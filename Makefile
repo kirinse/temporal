@@ -136,7 +136,7 @@ update-linters:
 
 update-mockgen:
 	@printf $(COLOR) "Install/update mockgen tool..."
-	@go install github.com/golang/mock/mockgen@v1.7.0-rc.1
+	@go install go.uber.org/mock/mockgen@v0.4.0
 
 update-gotestsum:
 	@printf $(COLOR) "Install/update gotestsum..."
